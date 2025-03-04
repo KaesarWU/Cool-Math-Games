@@ -1,0 +1,300 @@
+#include <iostream>
+#include <cstdlib>
+#include <ctime>
+#include <chrono>
+#include <iomanip>
+#include <cmath>
+#include <limits>
+#include <unordered_map>
+#include <vector>
+#include <algorithm>
+
+using namespace std;
+using namespace chrono;
+
+// Struct to store high score information
+struct HighScore {
+    string username;
+    int score;
+    double timeTaken;
+    HighScore() : username(""), score(0), timeTaken(numeric_limits<double>::max()) {}
+};
+
+// Global high scores across all users (for each difficulty level)
+unordered_map<int, vector<HighScore>> globalHighScores;
+
+unordered_map<string, string> userDatabase; // To store usernames and passwords
+
+// Flag to track if the game is in developer mode
+bool developerMode = false;
+
+bool registerUser(string &username) {
+    string password, confirmPassword;
+    cout << "Register\n";
+    cout << "Username: ";
+    cin >> username;
+    cout << "Password: ";
+    cin >> password;
+    cout << "Confirm Password: ";
+    cin >> confirmPassword;
+
+    if (password == confirmPassword) {
+        userDatabase[username] = password;
+        cout << "Registration successful!\n";
+        return true;
+    } else {
+        cout << "Passwords do not match. Registration failed.\n";
+        return false;
+    }
+}
+
+bool loginUser(string &username) {
+    string password;
+    cout << "Login\n";
+    cout << "Username: ";
+    cin >> username;
+    cout << "Password: ";
+    cin >> password;
+
+    // Check for developer credentials
+    if (username == "ItsaTechPolarBear" && password == "Kw@6668.$$$") {
+        developerMode = true;
+        cout << "Developer mode unlocked!\n";
+        return true;
+    }
+
+    // Check for normal user login
+    if (userDatabase.find(username) != userDatabase.end() && userDatabase[username] == password) {
+        cout << "Login successful!\n";
+        return true;
+    } else {
+        cout << "Invalid username or password. Login failed.\n";
+        return false;
+    }
+}
+
+void showWelcomePage() {
+    cout << "Welcome to Kaesar's Basic Facts!\n";
+    cout << "Rules and How to Play:\n";
+    cout << "1. Choose a difficulty level: Emerging, Basic, Advanced, or Extreme.\n";
+    cout << "2. You will be given 100 questions to answer within 5 minutes.\n";
+    cout << "3. Questions can include operations such as addition, subtraction, multiplication, division, exponents, and roots.\n";
+    cout << "4. Enter your answer for each question.\n";
+    cout << "5. For each correct answer, your score will increase by 1.\n";
+    cout << "6. If the answer is incorrect, the correct answer will be shown, and you will get another chance to answer.\n";
+    cout << "7. The game ends when time runs out or all questions are answered.\n";
+    cout << "8. Type 'exit' at any point to return to the main menu.\n";  // Added exit instruction
+    cout << "Good luck and have fun!\n";
+    cout << "-----------------------------------\n";
+    cout << "Press Enter to continue... ";
+    cin.ignore();  // Clear the input buffer
+    cin.get();     // Wait for the user to press Enter
+}
+
+void clearScreen() {
+    // Function to clear the console screen
+    #ifdef _WIN32
+        system("cls");
+    #else
+        system("clear");
+    #endif
+}
+
+int generateQuestion(int &correctAnswer, int difficulty) {
+    int operation;
+    int num1, num2;
+
+    switch (difficulty) {
+        case 1: // Emerging: Addition and Subtraction
+            operation = rand() % 2;
+            break;
+        case 2: // Basic: Addition, Subtraction, Multiplication, Division
+            operation = rand() % 4;
+            break;
+        case 3: // Advanced: Addition, Subtraction, Multiplication, Division, Exponents
+            operation = rand() % 5;
+            break;
+        case 4: // Extreme: All operations including roots
+            operation = rand() % 6;
+            break;
+        default:
+            operation = rand() % 2;
+    }
+
+    switch (operation) {
+        case 0: // Addition
+            num1 = rand() % (difficulty * 25 + 1);
+            num2 = rand() % (difficulty * 25 + 1);
+            cout << num1 << " + " << num2 << " = ? ";
+            correctAnswer = num1 + num2;
+            break;
+        case 1: // Subtraction
+            num1 = rand() % (difficulty * 25 + 1);
+            num2 = rand() % (difficulty * 25 + 1);
+            cout << num1 << " - " << num2 << " = ? ";
+            correctAnswer = num1 - num2;
+            break;
+        case 2: // Multiplication
+            num1 = rand() % (difficulty * 10 + 1);
+            num2 = rand() % (difficulty * 10 + 1);
+            cout << num1 << " * " << num2 << " = ? ";
+            correctAnswer = num1 * num2;
+            break;
+        case 3: // Division
+            num2 = rand() % (difficulty * 6 + 1) + 1; // Numbers from 1 to difficulty*6
+            correctAnswer = rand() % (difficulty * 6 + 1);
+            num1 = num2 * correctAnswer; // Ensuring a whole number result
+            cout << num1 << " / " << num2 << " = ? ";
+            break;
+        case 4: // Exponent
+            num1 = rand() % (difficulty + 1);
+            num2 = rand() % (difficulty + 1);
+            cout << num1 << " ^ " << num2 << " = ? ";
+            correctAnswer = pow(num1, num2);
+            break;
+        case 5: // Root
+            num1 = (rand() % (difficulty * 25 + 1)) * (rand() % (difficulty * 25 + 1));
+            cout << "√" << num1 << " = ? (rounded to the nearest integer) ";
+            correctAnswer = round(sqrt(num1));
+            break;
+    }
+    return correctAnswer;
+}
+
+bool playGame(const string &username) {
+    srand(static_cast<unsigned int>(time(nullptr))); // Seed the random number generator
+
+    showWelcomePage();
+    clearScreen();
+
+    int difficulty;
+    bool validChoice = false;
+    int invalidAttempts = 0;
+    const int maxInvalidAttempts = 3;
+
+    while (!validChoice && invalidAttempts < maxInvalidAttempts) {
+        cout << "Choose a difficulty level:\n";
+        cout << "1. Emerging\n";
+        cout << "2. Basic\n";
+        cout << "3. Advanced\n";
+        cout << "4. Extreme\n";
+        int choice;
+        cin >> choice;
+
+        if (cin.fail()) {
+            cin.clear(); // Clear the error state
+            cin.ignore(numeric_limits<streamsize>::max(), '\n'); // Ignore invalid input
+            cout << "Invalid choice. Please try again.\n";
+            invalidAttempts++;
+            continue;
+        }
+
+        if (choice >= 1 && choice <= 4) {
+            difficulty = choice;
+            validChoice = true;
+        } else {
+            cout << "Invalid choice. Please try again.\n";
+            invalidAttempts++;
+        }
+
+        if (invalidAttempts >= maxInvalidAttempts) {
+            cout << "Too many invalid attempts. Exiting the game.\n";
+            return false;
+        }
+    }
+    clearScreen();
+
+    int totalQuestions = 100;
+    int correctAnswer, userAnswer;
+    int correctCount = 0;
+    auto startTime = steady_clock::now();
+
+    while (totalQuestions > 0) {
+        auto currentTime = steady_clock::now();
+        auto elapsedTime = duration_cast<seconds>(currentTime - startTime);
+        auto remainingTime = minutes(5) - elapsedTime;
+
+        if (remainingTime.count() <= 0) {
+            cout << "Time's up!" << endl;
+            break;
+        }
+
+        int minutesLeft = duration_cast<minutes>(remainingTime).count();
+        int secondsLeft = remainingTime.count() % 60;
+
+        cout << "Time left: " << minutesLeft << "m " << secondsLeft << "s\n";
+        cout << "Questions remaining: " << totalQuestions << endl;
+
+        generateQuestion(correctAnswer, difficulty);
+
+        cin >> userAnswer;
+
+        if (userAnswer == correctAnswer) {
+            correctCount++;
+            cout << "Correct!\n";
+        } else {
+            cout << "Incorrect. The correct answer was: " << correctAnswer << endl;
+        }
+
+        totalQuestions--;
+    }
+
+    auto endTime = steady_clock::now();
+    auto elapsedTime = duration_cast<seconds>(endTime - startTime);
+    double timeTaken = elapsedTime.count();
+
+    cout << "Game over! You answered " << correctCount << " questions correctly in " << timeTaken << " seconds.\n";
+
+    // Save the score in the global high scores
+    HighScore newScore;
+    newScore.username = username;
+    newScore.score = correctCount;
+    newScore.timeTaken = timeTaken;
+
+    globalHighScores[difficulty].push_back(newScore);
+
+    // Sort the global high scores for the difficulty level
+    sort(globalHighScores[difficulty].begin(), globalHighScores[difficulty].end(), 
+        [](const HighScore &a, const HighScore &b) {
+            return a.score > b.score || (a.score == b.score && a.timeTaken < b.timeTaken);
+        });
+
+    // Display the top 5 high scores for the chosen difficulty
+    cout << "Top High Scores for difficulty " << difficulty << ":\n";
+    for (int i = 0; i < min(5, (int)globalHighScores[difficulty].size()); i++) {
+        cout << "Username: " << globalHighScores[difficulty][i].username
+             << " | Score: " << globalHighScores[difficulty][i].score
+             << " | Time Taken: " << fixed << setprecision(2) << globalHighScores[difficulty][i].timeTaken << " seconds\n";
+    }
+
+    // Developer mode special features
+    if (developerMode) {
+        cout << "\n***** Developer Mode Enabled *****\n";
+        // Add developer mode features here
+    }
+
+    return true;
+}
+
+int main() {
+    string username;
+    int choice;
+
+    cout << "Welcome to Kaesar's Basic Facts Game!\n";
+    cout << "1. Register\n2. Login\nChoose option: ";
+    cin >> choice;
+
+    if (choice == 1) {
+        if (registerUser(username)) {
+            playGame(username);
+        }
+    } else if (choice == 2) {
+        if (loginUser(username)) {
+            playGame(username);
+        }
+    } else {
+        cout << "Invalid choice. Exiting.\n";
+    }
+
+    return 0;
+}
